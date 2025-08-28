@@ -28,6 +28,13 @@ let minesEl, livesEl, boardEl,
   resultOverlayEl, resultMessageEl, restartBtnEl, difficultySelectEl,
   timeElapsedEl, resultDifficultyEl, resultTimeEl, scorePointsEl, resultScoreEl, leaderboardListEl;
 
+// Audio engine (WebAudio)
+let audioCtx = null;
+let bgmOsc = null;
+let bgmGain = null;
+let sfxGain = null;
+let musicEnabled = false;
+
 // Bank pertanyaan (SMP level)
 const QUESTIONS = [
   {
@@ -179,6 +186,7 @@ function initGame() {
   scorePointsEl = document.getElementById('score-points');
   resultScoreEl = document.getElementById('result-score');
   leaderboardListEl = document.getElementById('leaderboard-list');
+  const musicToggleBtn = document.getElementById('music-toggle');
 
   // Reset state
   gameOver = false;
@@ -213,6 +221,11 @@ function initGame() {
     boardEl.style.gridTemplateRows = `repeat(${BOARD_HEIGHT}, ${tileSize})`;
   } catch (err) {
     // ignore
+  }
+
+  // Set music toggle button state
+  if (musicToggleBtn) {
+    musicToggleBtn.setAttribute('aria-pressed', musicEnabled ? 'true' : 'false');
   }
 }
 
@@ -394,11 +407,18 @@ function onSubmitAnswer() {
 
   if (isCorrect) {
     scorePoints = Math.max(0, scorePoints + 10);
+    playSfx('correct');
     revealTile(row, col);
     checkWinCondition();
   } else {
     scorePoints = Math.max(0, scorePoints - 5);
     lives -= 1;
+    playSfx('wrong');
+    const tile = getTileElement(row, col);
+    if (tile) {
+      tile.classList.add('tile-wrong');
+      setTimeout(() => tile.classList.remove('tile-wrong'), 350);
+    }
     updateUI();
     if (lives <= 0) {
       endGame(false);
@@ -419,6 +439,7 @@ function revealTile(row, col) {
     tileEl.classList.remove('tile-hidden');
     tileEl.classList.add('tile-revealed', 'tile-mine');
     cell.isRevealed = true;
+    playSfx('mine');
     endGame(false);
     return;
   }
@@ -451,6 +472,8 @@ function revealTile(row, col) {
         }
       });
     }
+    curEl.classList.add('tile-correct');
+    setTimeout(() => curEl.classList.remove('tile-correct'), 450);
   }
   updateUI();
 }
@@ -496,6 +519,7 @@ function endGame(isWin) {
   renderLeaderboard();
   resultOverlayEl.classList.add('show');
   resultOverlayEl.setAttribute('aria-hidden', 'false');
+  if (isWin) playSfx('win'); else playSfx('lose');
 }
 
 function hideResultOverlay() {
@@ -519,6 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
   difficultySelectEl = document.getElementById('difficulty-select');
   const resetLbBtn = document.getElementById('reset-lb-btn');
   const closeResultBtn = document.getElementById('close-result-btn');
+  const musicToggleBtn = document.getElementById('music-toggle');
 
   boardEl.addEventListener('click', onBoardClick);
   boardEl.addEventListener('contextmenu', onBoardContextMenu);
@@ -538,6 +563,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (musicToggleBtn) {
+    musicToggleBtn.addEventListener('click', () => {
+      toggleMusic();
+      musicToggleBtn.setAttribute('aria-pressed', musicEnabled ? 'true' : 'false');
+    });
+  }
+
   difficultySelectEl.addEventListener('change', () => {
     const value = difficultySelectEl.value;
     const cfg = DIFFICULTIES[value] || DIFFICULTIES.medium;
@@ -547,6 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
     STARTING_LIVES = cfg.lives;
     hideResultOverlay();
     initGame();
+    playSfx('switch');
   });
 
   shuffleQuestions();
@@ -652,6 +685,130 @@ function clearLeaderboard() {
   } catch (e) {
     // ignore
   }
+}
+
+// Audio helpers
+function ensureAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const master = audioCtx.createGain();
+    master.gain.value = 0.9;
+    master.connect(audioCtx.destination);
+
+    bgmGain = audioCtx.createGain();
+    bgmGain.gain.value = 0.12;
+    bgmGain.connect(master);
+
+    sfxGain = audioCtx.createGain();
+    sfxGain.gain.value = 0.5;
+    sfxGain.connect(master);
+  }
+}
+
+function startBgm() {
+  ensureAudio();
+  if (bgmOsc) return;
+  bgmOsc = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  const lfo = audioCtx.createOscillator();
+  const lfoGain = audioCtx.createGain();
+  lfo.frequency.value = 0.08;
+  lfoGain.gain.value = 6;
+  lfo.connect(lfoGain);
+  lfoGain.connect(bgmGain.gain);
+  lfo.start();
+
+  bgmOsc.type = 'sine';
+  osc2.type = 'triangle';
+  bgmOsc.frequency.value = 220; // A3
+  osc2.frequency.value = 277.18; // C#4
+  const mix = audioCtx.createGain();
+  mix.gain.value = 1.0;
+  bgmOsc.connect(mix);
+  osc2.connect(mix);
+  mix.connect(bgmGain);
+  bgmOsc.start();
+  osc2.start();
+  bgmOsc._companion = osc2;
+}
+
+function stopBgm() {
+  if (bgmOsc) {
+    try { bgmOsc.stop(); } catch (e) {}
+    try { bgmOsc._companion && bgmOsc._companion.stop(); } catch (e) {}
+    bgmOsc = null;
+  }
+}
+
+function toggleMusic() {
+  musicEnabled = !musicEnabled;
+  if (musicEnabled) {
+    startBgm();
+  } else {
+    stopBgm();
+  }
+}
+
+function playSfx(kind) {
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g);
+  g.connect(sfxGain);
+  switch (kind) {
+    case 'correct':
+      o.type = 'square';
+      o.frequency.setValueAtTime(660, now);
+      o.frequency.linearRampToValueAtTime(880, now + 0.08);
+      g.gain.setValueAtTime(0.0, now);
+      g.gain.linearRampToValueAtTime(0.5, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      break;
+    case 'wrong':
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(220, now);
+      o.frequency.linearRampToValueAtTime(120, now + 0.12);
+      g.gain.setValueAtTime(0.5, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+      break;
+    case 'mine':
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(120, now);
+      o.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+      g.gain.setValueAtTime(0.7, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+      break;
+    case 'win':
+      o.type = 'square';
+      o.frequency.setValueAtTime(523.25, now);
+      o.frequency.linearRampToValueAtTime(659.25, now + 0.1);
+      g.gain.setValueAtTime(0.0, now);
+      g.gain.linearRampToValueAtTime(0.6, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+      break;
+    case 'lose':
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(180, now);
+      o.frequency.linearRampToValueAtTime(90, now + 0.15);
+      g.gain.setValueAtTime(0.5, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+      break;
+    case 'switch':
+      o.type = 'sine';
+      o.frequency.setValueAtTime(580, now);
+      o.frequency.linearRampToValueAtTime(500, now + 0.08);
+      g.gain.setValueAtTime(0.4, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+      break;
+    default:
+      o.type = 'sine';
+      o.frequency.setValueAtTime(600, now);
+      g.gain.setValueAtTime(0.3, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+  }
+  o.start();
+  o.stop(now + 0.6);
 }
 
 
