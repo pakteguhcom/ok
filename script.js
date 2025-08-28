@@ -517,6 +517,8 @@ document.addEventListener('DOMContentLoaded', () => {
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
   difficultySelectEl = document.getElementById('difficulty-select');
+  const resetLbBtn = document.getElementById('reset-lb-btn');
+  const closeResultBtn = document.getElementById('close-result-btn');
 
   boardEl.addEventListener('click', onBoardClick);
   boardEl.addEventListener('contextmenu', onBoardContextMenu);
@@ -524,13 +526,17 @@ document.addEventListener('DOMContentLoaded', () => {
     hideResultOverlay();
     initGame();
   });
-  resetLbBtn?.addEventListener('click', () => {
-    clearLeaderboard();
-    renderLeaderboard();
-  });
-  closeResultBtn?.addEventListener('click', () => {
-    hideResultOverlay();
-  });
+  if (resetLbBtn) {
+    resetLbBtn.addEventListener('click', () => {
+      clearLeaderboard();
+      renderLeaderboard();
+    });
+  }
+  if (closeResultBtn) {
+    closeResultBtn.addEventListener('click', () => {
+      hideResultOverlay();
+    });
+  }
 
   difficultySelectEl.addEventListener('change', () => {
     const value = difficultySelectEl.value;
@@ -577,7 +583,7 @@ function getElapsedSeconds() {
 }
 
 function getCurrentDifficultyKey() {
-  const v = difficultySelectEl?.value || 'medium';
+  const v = (difficultySelectEl && difficultySelectEl.value) ? difficultySelectEl.value : 'medium';
   return ['easy','medium','hard'].includes(v) ? v : 'medium';
 }
 
