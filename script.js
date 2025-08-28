@@ -204,6 +204,16 @@ function initGame() {
   // Timer
   stopTimer();
   startTimer();
+
+  // Cross-browser fallback: explicitly set grid templates
+  try {
+    const rootStyles = getComputedStyle(document.documentElement);
+    const tileSize = rootStyles.getPropertyValue('--tile-size').trim() || '44px';
+    boardEl.style.gridTemplateColumns = `repeat(${BOARD_WIDTH}, ${tileSize})`;
+    boardEl.style.gridTemplateRows = `repeat(${BOARD_HEIGHT}, ${tileSize})`;
+  } catch (err) {
+    // ignore
+  }
 }
 
 function buildEmptyBoard() {
