@@ -1,10 +1,16 @@
 // Quiz Sweeper - Core Game Logic + Quiz System
 
-// Konstanta permainan
-const BOARD_WIDTH = 10;
-const BOARD_HEIGHT = 10;
-const NUM_MINES = 15;
-const STARTING_LIVES = 3;
+// Konfigurasi kesulitan
+const DIFFICULTIES = {
+  easy: { width: 8, height: 8, mines: 10, lives: 4 },
+  medium: { width: 10, height: 10, mines: 15, lives: 3 },
+  hard: { width: 12, height: 12, mines: 28, lives: 2 },
+};
+
+let BOARD_WIDTH = DIFFICULTIES.medium.width;
+let BOARD_HEIGHT = DIFFICULTIES.medium.height;
+let NUM_MINES = DIFFICULTIES.medium.mines;
+let STARTING_LIVES = DIFFICULTIES.medium.lives;
 
 // State global
 let boardData = [];
@@ -19,7 +25,7 @@ let currentClick = null; // { row, col }
 // DOM elements
 let minesEl, livesEl, boardEl,
   quizModalEl, questionTextEl, answerOptionsEl, submitAnswerBtn,
-  resultOverlayEl, resultMessageEl, restartBtnEl;
+  resultOverlayEl, resultMessageEl, restartBtnEl, difficultySelectEl;
 
 // Bank pertanyaan (SMP level)
 const QUESTIONS = [
@@ -160,6 +166,7 @@ function initGame() {
   resultOverlayEl = document.getElementById('result-overlay');
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
+  difficultySelectEl = document.getElementById('difficulty-select');
 
   // Reset state
   gameOver = false;
@@ -467,10 +474,22 @@ document.addEventListener('DOMContentLoaded', () => {
   resultOverlayEl = document.getElementById('result-overlay');
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
+  difficultySelectEl = document.getElementById('difficulty-select');
 
   boardEl.addEventListener('click', onBoardClick);
   boardEl.addEventListener('contextmenu', onBoardContextMenu);
   restartBtnEl.addEventListener('click', () => {
+    hideResultOverlay();
+    initGame();
+  });
+
+  difficultySelectEl.addEventListener('change', () => {
+    const value = difficultySelectEl.value;
+    const cfg = DIFFICULTIES[value] || DIFFICULTIES.medium;
+    BOARD_WIDTH = cfg.width;
+    BOARD_HEIGHT = cfg.height;
+    NUM_MINES = cfg.mines;
+    STARTING_LIVES = cfg.lives;
     hideResultOverlay();
     initGame();
   });

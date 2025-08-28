@@ -10,6 +10,14 @@
     <header class="app-header">
       <h1>Quiz Sweeper</h1>
       <div id="game-info" class="game-info">
+        <div class="info-item difficulty">
+          Level:
+          <select id="difficulty-select" aria-label="Pilih tingkat kesulitan">
+            <option value="easy">Mudah</option>
+            <option value="medium" selected>Sedang</option>
+            <option value="hard">Sulit</option>
+          </select>
+        </div>
         <div class="info-item">
           💣 Ranjau: <span id="mines-remaining">0</span>
         </div>
