@@ -24,6 +24,9 @@
         <div class="info-item">
           ❤️ Nyawa: <span id="lives-remaining">0</span>
         </div>
+        <div class="info-item timer">
+          ⏱️ Waktu: <span id="time-elapsed">0:00</span>
+        </div>
       </div>
     </header>
 
@@ -46,6 +49,10 @@
     <div id="result-overlay" class="result-overlay" aria-hidden="true">
       <div class="result-box">
         <h2 id="result-message">Yah, Anda Kalah!</h2>
+        <div class="result-stats">
+          <div>Level: <span id="result-difficulty">-</span></div>
+          <div>Waktu: <span id="result-time">0:00</span></div>
+        </div>
         <button id="restart-btn" class="btn">Main Lagi</button>
       </div>
     </div>

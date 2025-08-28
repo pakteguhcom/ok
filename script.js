@@ -25,7 +25,8 @@ let currentClick = null; // { row, col }
 // DOM elements
 let minesEl, livesEl, boardEl,
   quizModalEl, questionTextEl, answerOptionsEl, submitAnswerBtn,
-  resultOverlayEl, resultMessageEl, restartBtnEl, difficultySelectEl;
+  resultOverlayEl, resultMessageEl, restartBtnEl, difficultySelectEl,
+  timeElapsedEl, resultDifficultyEl, resultTimeEl;
 
 // Bank pertanyaan (SMP level)
 const QUESTIONS = [
@@ -138,6 +139,8 @@ const QUESTIONS = [
 
 let questionOrder = [];
 let questionIndex = 0;
+let timerInterval = null;
+let startTimeMs = 0;
 
 function shuffleQuestions() {
   questionOrder = [...Array(QUESTIONS.length).keys()]
@@ -167,6 +170,9 @@ function initGame() {
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
   difficultySelectEl = document.getElementById('difficulty-select');
+  timeElapsedEl = document.getElementById('time-elapsed');
+  resultDifficultyEl = document.getElementById('result-difficulty');
+  resultTimeEl = document.getElementById('result-time');
 
   // Reset state
   gameOver = false;
@@ -187,6 +193,10 @@ function initGame() {
   // Grid size variable for CSS
   boardEl.style.setProperty('--board-width', BOARD_WIDTH);
   boardEl.style.setProperty('--board-height', BOARD_HEIGHT);
+
+  // Timer
+  stopTimer();
+  startTimer();
 }
 
 function buildEmptyBoard() {
@@ -437,6 +447,7 @@ function checkWinCondition() {
 
 function endGame(isWin) {
   gameOver = true;
+  stopTimer();
   // Tampilkan semua ranjau jika kalah
   if (!isWin) {
     for (let r = 0; r < BOARD_HEIGHT; r++) {
@@ -452,6 +463,9 @@ function endGame(isWin) {
   }
 
   resultMessageEl.textContent = isWin ? 'Selamat, Anda Menang!' : 'Yah, Anda Kalah!';
+  const diffKey = getCurrentDifficultyKey();
+  resultDifficultyEl.textContent = labelForDifficulty(diffKey);
+  resultTimeEl.textContent = formatElapsed();
   resultOverlayEl.classList.add('show');
   resultOverlayEl.setAttribute('aria-hidden', 'false');
 }
@@ -497,5 +511,43 @@ document.addEventListener('DOMContentLoaded', () => {
   shuffleQuestions();
   initGame();
 });
+
+// Timer helpers
+function startTimer() {
+  startTimeMs = Date.now();
+  timeElapsedEl.textContent = '0:00';
+  timerInterval = setInterval(() => {
+    timeElapsedEl.textContent = formatElapsed();
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function formatElapsed() {
+  const ms = Math.max(0, Date.now() - startTimeMs);
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${String(sec).padStart(2, '0')}`;
+}
+
+function getCurrentDifficultyKey() {
+  const v = difficultySelectEl?.value || 'medium';
+  return ['easy','medium','hard'].includes(v) ? v : 'medium';
+}
+
+function labelForDifficulty(key) {
+  switch (key) {
+    case 'easy': return 'Mudah';
+    case 'medium': return 'Sedang';
+    case 'hard': return 'Sulit';
+    default: return '-';
+  }
+}
 
 

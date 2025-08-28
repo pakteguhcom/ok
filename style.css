@@ -242,6 +242,16 @@ html, body {
   font-size: 1.6rem;
 }
 
+.result-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  justify-items: center;
+  margin-bottom: 14px;
+  color: #123;
+  font-weight: 700;
+}
+
 /* Responsif */
 @media (max-width: 560px) {
   :root { --tile-size: 38px; }
