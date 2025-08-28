@@ -346,9 +346,11 @@ function onBoardContextMenu(e) {
   if (cell.isFlagged) {
     flagsPlaced++;
     target.classList.add('tile-flagged');
+    playSfx('switch');
   } else {
     flagsPlaced--;
     target.classList.remove('tile-flagged');
+    playSfx('switch');
   }
   updateUI();
 }
@@ -459,6 +461,8 @@ function revealTile(row, col) {
     if (cur.adjacent > 0) {
       curEl.textContent = String(cur.adjacent);
       curEl.classList.add(`num-${cur.adjacent}`);
+      curEl.classList.add('tile-number-glow');
+      setTimeout(() => curEl.classList.remove('tile-number-glow'), 650);
     } else {
       // 0: periksa tetangga
       forEachNeighbor(cur.row, cur.col, (n) => {
