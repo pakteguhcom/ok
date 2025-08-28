@@ -187,6 +187,8 @@ function initGame() {
   resultScoreEl = document.getElementById('result-score');
   leaderboardListEl = document.getElementById('leaderboard-list');
   const musicToggleBtn = document.getElementById('music-toggle');
+  const musicVolume = document.getElementById('music-volume');
+  const sfxVolume = document.getElementById('sfx-volume');
 
   // Reset state
   gameOver = false;
@@ -574,6 +576,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  if (musicVolume) {
+    musicVolume.addEventListener('input', () => {
+      const v = Number(musicVolume.value) / 100;
+      setMusicVolume(v);
+      persistVolumes();
+    });
+  }
+  if (sfxVolume) {
+    sfxVolume.addEventListener('input', () => {
+      const v = Number(sfxVolume.value) / 100;
+      setSfxVolume(v);
+      persistVolumes();
+    });
+  }
+
   difficultySelectEl.addEventListener('change', () => {
     const value = difficultySelectEl.value;
     const cfg = DIFFICULTIES[value] || DIFFICULTIES.medium;
@@ -588,6 +605,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   shuffleQuestions();
   initGame();
+  // Apply persisted volumes if any
+  restoreVolumes();
+  if (musicVolume) musicVolume.value = String(Math.round(getMusicVolume() * 100));
+  if (sfxVolume) sfxVolume.value = String(Math.round(getSfxVolume() * 100));
 });
 
 // Timer helpers
@@ -814,5 +835,36 @@ function playSfx(kind) {
   o.start();
   o.stop(now + 0.6);
 }
+
+// Volume persistence and control
+const VOL_KEY = 'quiz-sweeper-volumes-v1';
+function persistVolumes() {
+  try {
+    const data = {
+      music: getMusicVolume(),
+      sfx: getSfxVolume(),
+    };
+    localStorage.setItem(VOL_KEY, JSON.stringify(data));
+  } catch (e) {}
+}
+function restoreVolumes() {
+  try {
+    const raw = localStorage.getItem(VOL_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (typeof data.music === 'number') setMusicVolume(data.music);
+    if (typeof data.sfx === 'number') setSfxVolume(data.sfx);
+  } catch (e) {}
+}
+function setMusicVolume(v) {
+  ensureAudio();
+  if (bgmGain) bgmGain.gain.value = Math.max(0, Math.min(1, v));
+}
+function setSfxVolume(v) {
+  ensureAudio();
+  if (sfxGain) sfxGain.gain.value = Math.max(0, Math.min(1, v));
+}
+function getMusicVolume() { return bgmGain ? bgmGain.gain.value : 0.12; }
+function getSfxVolume() { return sfxGain ? sfxGain.gain.value : 0.5; }
 
 
