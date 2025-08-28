@@ -30,9 +30,11 @@ let minesEl, livesEl, boardEl,
 
 // Audio engine (WebAudio)
 let audioCtx = null;
-let bgmOsc = null;
-let bgmGain = null;
-let sfxGain = null;
+let bgmOsc = null; // primary osc
+let bgmOsc2 = null; // companion osc
+let bgmLfo = null; // slow LFO for gentle variation
+let bgmGain = null; // BGM volume
+let sfxGain = null; // SFX volume
 let musicEnabled = false;
 
 // Bank pertanyaan (SMP level)
@@ -723,7 +725,7 @@ function ensureAudio() {
     master.connect(audioCtx.destination);
 
     bgmGain = audioCtx.createGain();
-    bgmGain.gain.value = 0.12;
+    bgmGain.gain.value = 0.18;
     bgmGain.connect(master);
 
     sfxGain = audioCtx.createGain();
@@ -734,37 +736,37 @@ function ensureAudio() {
 
 function startBgm() {
   ensureAudio();
+  if (audioCtx.state === 'suspended') {
+    try { audioCtx.resume(); } catch (e) {}
+  }
   if (bgmOsc) return;
   bgmOsc = audioCtx.createOscillator();
-  const osc2 = audioCtx.createOscillator();
-  const lfo = audioCtx.createOscillator();
+  bgmOsc2 = audioCtx.createOscillator();
+  bgmLfo = audioCtx.createOscillator();
   const lfoGain = audioCtx.createGain();
-  lfo.frequency.value = 0.08;
+  bgmLfo.frequency.value = 0.08;
   lfoGain.gain.value = 6;
-  lfo.connect(lfoGain);
+  bgmLfo.connect(lfoGain);
   lfoGain.connect(bgmGain.gain);
-  lfo.start();
+  bgmLfo.start();
 
   bgmOsc.type = 'sine';
-  osc2.type = 'triangle';
+  bgmOsc2.type = 'triangle';
   bgmOsc.frequency.value = 220; // A3
-  osc2.frequency.value = 277.18; // C#4
+  bgmOsc2.frequency.value = 277.18; // C#4
   const mix = audioCtx.createGain();
   mix.gain.value = 1.0;
   bgmOsc.connect(mix);
-  osc2.connect(mix);
+  bgmOsc2.connect(mix);
   mix.connect(bgmGain);
   bgmOsc.start();
-  osc2.start();
-  bgmOsc._companion = osc2;
+  bgmOsc2.start();
 }
 
 function stopBgm() {
-  if (bgmOsc) {
-    try { bgmOsc.stop(); } catch (e) {}
-    try { bgmOsc._companion && bgmOsc._companion.stop(); } catch (e) {}
-    bgmOsc = null;
-  }
+  if (bgmOsc) { try { bgmOsc.stop(); } catch(e) {} bgmOsc = null; }
+  if (bgmOsc2) { try { bgmOsc2.stop(); } catch(e) {} bgmOsc2 = null; }
+  if (bgmLfo) { try { bgmLfo.stop(); } catch(e) {} bgmLfo = null; }
 }
 
 function toggleMusic() {
