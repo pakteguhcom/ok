@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Quiz Sweeper</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Quiz Sweeper</h1>
+      <div id="game-info" class="game-info">
+        <div class="info-item">
+          💣 Ranjau: <span id="mines-remaining">0</span>
+        </div>
+        <div class="info-item">
+          ❤️ Nyawa: <span id="lives-remaining">0</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div id="game-board" class="game-board" aria-label="Papan permainan"></div>
+    </main>
+
+    <!-- Modal Kuis -->
+    <div id="quiz-modal" class="modal-overlay" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="question-text">
+        <h3 id="question-text">Pertanyaan akan tampil di sini</h3>
+        <div id="answer-options" class="answer-options"></div>
+        <div class="modal-actions">
+          <button id="submit-answer" class="btn primary" disabled>Jawab</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layar Hasil (Menang/Kalah) -->
+    <div id="result-overlay" class="result-overlay" aria-hidden="true">
+      <div class="result-box">
+        <h2 id="result-message">Yah, Anda Kalah!</h2>
+        <button id="restart-btn" class="btn">Main Lagi</button>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+  </html>
+
