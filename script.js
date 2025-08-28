@@ -550,6 +550,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetLbBtn = document.getElementById('reset-lb-btn');
   const closeResultBtn = document.getElementById('close-result-btn');
   const musicToggleBtn = document.getElementById('music-toggle');
+  const musicVolume = document.getElementById('music-volume');
+  const sfxVolume = document.getElementById('sfx-volume');
 
   boardEl.addEventListener('click', onBoardClick);
   boardEl.addEventListener('contextmenu', onBoardContextMenu);
