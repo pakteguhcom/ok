@@ -36,6 +36,20 @@ let bgmLfo = null; // slow LFO for gentle variation
 let bgmGain = null; // BGM volume
 let sfxGain = null; // SFX volume
 let musicEnabled = false;
+// BGM sequencer state
+let bgmSchedulerId = null;
+let bgmNextNoteTime = 0;
+let bgmCurrentStep = 0; // 0..63 (4 bars, 16 steps per bar)
+const BGM_LOOKAHEAD_MS = 25;
+const BGM_SCHEDULE_AHEAD = 0.15;
+let bgmTempo = 100; // BPM
+const BGM_CHORDS = [
+  // I – vi – IV – V (C, Am, F, G)
+  [261.63, 329.63, 392.00],   // C major (C E G)
+  [220.00, 261.63, 329.63],   // A minor (A C E)
+  [174.61, 220.00, 261.63],   // F major (F A C)
+  [196.00, 246.94, 392.00],   // G (G B D approx: G B(246.94) G high)
+];
 
 // Bank pertanyaan (SMP level)
 const QUESTIONS = [
@@ -739,33 +753,24 @@ function startBgm() {
   if (audioCtx.state === 'suspended') {
     try { audioCtx.resume(); } catch (e) {}
   }
-  if (bgmOsc) return;
-  bgmOsc = audioCtx.createOscillator();
-  bgmOsc2 = audioCtx.createOscillator();
+  if (bgmSchedulerId) return;
+  // Gentle LFO for slight volume movement
   bgmLfo = audioCtx.createOscillator();
   const lfoGain = audioCtx.createGain();
-  bgmLfo.frequency.value = 0.08;
-  lfoGain.gain.value = 6;
+  bgmLfo.frequency.value = 0.07;
+  lfoGain.gain.value = 4;
   bgmLfo.connect(lfoGain);
   lfoGain.connect(bgmGain.gain);
   bgmLfo.start();
 
-  bgmOsc.type = 'sine';
-  bgmOsc2.type = 'triangle';
-  bgmOsc.frequency.value = 220; // A3
-  bgmOsc2.frequency.value = 277.18; // C#4
-  const mix = audioCtx.createGain();
-  mix.gain.value = 1.0;
-  bgmOsc.connect(mix);
-  bgmOsc2.connect(mix);
-  mix.connect(bgmGain);
-  bgmOsc.start();
-  bgmOsc2.start();
+  // Start step sequencer
+  bgmCurrentStep = 0;
+  bgmNextNoteTime = audioCtx.currentTime + 0.05;
+  scheduleBgm();
 }
 
 function stopBgm() {
-  if (bgmOsc) { try { bgmOsc.stop(); } catch(e) {} bgmOsc = null; }
-  if (bgmOsc2) { try { bgmOsc2.stop(); } catch(e) {} bgmOsc2 = null; }
+  if (bgmSchedulerId) { clearTimeout(bgmSchedulerId); bgmSchedulerId = null; }
   if (bgmLfo) { try { bgmLfo.stop(); } catch(e) {} bgmLfo = null; }
 }
 
@@ -776,6 +781,78 @@ function toggleMusic() {
   } else {
     stopBgm();
   }
+}
+
+// Simple step sequencer to create a pleasant loop
+function scheduleBgm() {
+  const secondsPerBeat = 60.0 / bgmTempo;
+  while (bgmNextNoteTime < audioCtx.currentTime + BGM_SCHEDULE_AHEAD) {
+    const stepInBar = bgmCurrentStep % 16;
+    const barIndex = Math.floor(bgmCurrentStep / 16) % BGM_CHORDS.length;
+    const chord = BGM_CHORDS[barIndex];
+
+    // Kick-ish thump on beats 0, 8
+    if (stepInBar === 0 || stepInBar === 8) {
+      scheduleThump(bgmNextNoteTime, 0.2);
+    }
+    // Hi click on off-beats
+    if (stepInBar % 4 === 2) {
+      scheduleClick(bgmNextNoteTime, 0.06);
+    }
+    // Soft chord pad on step 0 of each bar
+    if (stepInBar === 0) {
+      scheduleChord(chord, bgmNextNoteTime, 15 * secondsPerBeat);
+    }
+
+    bgmNextNoteTime += 0.25 * secondsPerBeat; // 16th notes
+    bgmCurrentStep = (bgmCurrentStep + 1) % 64;
+  }
+  bgmSchedulerId = setTimeout(scheduleBgm, BGM_LOOKAHEAD_MS);
+}
+
+function scheduleChord(freqs, startTime, duration) {
+  freqs.forEach((f) => {
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'sine';
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0, startTime);
+    g.gain.linearRampToValueAtTime(0.12, startTime + 0.5);
+    g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    o.connect(g);
+    g.connect(bgmGain);
+    o.start(startTime);
+    o.stop(startTime + duration + 0.1);
+  });
+}
+
+function scheduleThump(startTime, length) {
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(90, startTime);
+  o.frequency.exponentialRampToValueAtTime(50, startTime + length);
+  g.gain.setValueAtTime(0.0, startTime);
+  g.gain.linearRampToValueAtTime(0.25, startTime + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, startTime + length);
+  o.connect(g);
+  g.connect(bgmGain);
+  o.start(startTime);
+  o.stop(startTime + length + 0.05);
+}
+
+function scheduleClick(startTime, length) {
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'square';
+  o.frequency.setValueAtTime(1200, startTime);
+  g.gain.setValueAtTime(0.0, startTime);
+  g.gain.linearRampToValueAtTime(0.12, startTime + 0.005);
+  g.gain.exponentialRampToValueAtTime(0.0001, startTime + length);
+  o.connect(g);
+  g.connect(bgmGain);
+  o.start(startTime);
+  o.stop(startTime + length + 0.05);
 }
 
 function playSfx(kind) {
