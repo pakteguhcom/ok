@@ -26,7 +26,7 @@ let currentClick = null; // { row, col }
 let minesEl, livesEl, boardEl,
   quizModalEl, questionTextEl, answerOptionsEl, submitAnswerBtn,
   resultOverlayEl, resultMessageEl, restartBtnEl, difficultySelectEl,
-  timeElapsedEl, resultDifficultyEl, resultTimeEl;
+  timeElapsedEl, resultDifficultyEl, resultTimeEl, scorePointsEl, resultScoreEl, leaderboardListEl;
 
 // Bank pertanyaan (SMP level)
 const QUESTIONS = [
@@ -141,6 +141,7 @@ let questionOrder = [];
 let questionIndex = 0;
 let timerInterval = null;
 let startTimeMs = 0;
+let scorePoints = 0;
 
 function shuffleQuestions() {
   questionOrder = [...Array(QUESTIONS.length).keys()]
@@ -173,6 +174,9 @@ function initGame() {
   timeElapsedEl = document.getElementById('time-elapsed');
   resultDifficultyEl = document.getElementById('result-difficulty');
   resultTimeEl = document.getElementById('result-time');
+  scorePointsEl = document.getElementById('score-points');
+  resultScoreEl = document.getElementById('result-score');
+  leaderboardListEl = document.getElementById('leaderboard-list');
 
   // Reset state
   gameOver = false;
@@ -182,6 +186,7 @@ function initGame() {
   totalSafeTiles = BOARD_WIDTH * BOARD_HEIGHT - NUM_MINES;
   quizOpen = false;
   currentClick = null;
+  scorePoints = 0;
 
   // Siapkan papan
   buildEmptyBoard();
@@ -280,6 +285,7 @@ function updateUI() {
   const minesRemaining = NUM_MINES - flagsPlaced;
   minesEl.textContent = String(minesRemaining);
   livesEl.textContent = String(lives);
+  if (scorePointsEl) scorePointsEl.textContent = String(scorePoints);
 }
 
 // Event Handlers
@@ -375,9 +381,11 @@ function onSubmitAnswer() {
   currentClick = null;
 
   if (isCorrect) {
+    scorePoints = Math.max(0, scorePoints + 10);
     revealTile(row, col);
     checkWinCondition();
   } else {
+    scorePoints = Math.max(0, scorePoints - 5);
     lives -= 1;
     updateUI();
     if (lives <= 0) {
@@ -466,6 +474,14 @@ function endGame(isWin) {
   const diffKey = getCurrentDifficultyKey();
   resultDifficultyEl.textContent = labelForDifficulty(diffKey);
   resultTimeEl.textContent = formatElapsed();
+  resultScoreEl.textContent = String(scorePoints);
+  updateLeaderboard({
+    score: scorePoints,
+    timeSec: getElapsedSeconds(),
+    difficulty: diffKey,
+    date: new Date().toISOString(),
+  });
+  renderLeaderboard();
   resultOverlayEl.classList.add('show');
   resultOverlayEl.setAttribute('aria-hidden', 'false');
 }
@@ -536,6 +552,11 @@ function formatElapsed() {
   return `${min}:${String(sec).padStart(2, '0')}`;
 }
 
+function getElapsedSeconds() {
+  const ms = Math.max(0, Date.now() - startTimeMs);
+  return Math.floor(ms / 1000);
+}
+
 function getCurrentDifficultyKey() {
   const v = difficultySelectEl?.value || 'medium';
   return ['easy','medium','hard'].includes(v) ? v : 'medium';
@@ -548,6 +569,56 @@ function labelForDifficulty(key) {
     case 'hard': return 'Sulit';
     default: return '-';
   }
+}
+
+// Leaderboard (localStorage)
+const LB_KEY = 'quiz-sweeper-leaderboard-v1';
+
+function readLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LB_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeLeaderboard(entries) {
+  try {
+    localStorage.setItem(LB_KEY, JSON.stringify(entries));
+  } catch (e) {
+    // ignore
+  }
+}
+
+function updateLeaderboard(entry) {
+  const entries = readLeaderboard();
+  entries.push(entry);
+  entries.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score; // skor menurun
+    return a.timeSec - b.timeSec; // waktu naik
+  });
+  writeLeaderboard(entries.slice(0, 5));
+}
+
+function renderLeaderboard() {
+  if (!leaderboardListEl) return;
+  const entries = readLeaderboard();
+  leaderboardListEl.innerHTML = '';
+  entries.forEach((e) => {
+    const li = document.createElement('li');
+    li.textContent = `${e.score} poin • ${formatSeconds(e.timeSec)} • ${labelForDifficulty(e.difficulty)}`;
+    leaderboardListEl.appendChild(li);
+  });
+}
+
+function formatSeconds(totalSec) {
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${String(sec).padStart(2, '0')}`;
 }
 
 

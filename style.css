@@ -252,6 +252,26 @@ html, body {
   font-weight: 700;
 }
 
+.leaderboard {
+  background: #f9fbff;
+  border: 1px solid rgba(30, 136, 229, 0.2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+.leaderboard h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+.leaderboard ol {
+  margin: 0;
+  padding-left: 18px;
+}
+.leaderboard li {
+  margin: 4px 0;
+}
+
 /* Responsif */
 @media (max-width: 560px) {
   :root { --tile-size: 38px; }
