@@ -171,6 +171,7 @@ function initGame() {
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
   const resetLbBtn = document.getElementById('reset-lb-btn');
+  const closeResultBtn = document.getElementById('close-result-btn');
   difficultySelectEl = document.getElementById('difficulty-select');
   timeElapsedEl = document.getElementById('time-elapsed');
   resultDifficultyEl = document.getElementById('result-difficulty');
@@ -516,6 +517,9 @@ document.addEventListener('DOMContentLoaded', () => {
   resetLbBtn?.addEventListener('click', () => {
     clearLeaderboard();
     renderLeaderboard();
+  });
+  closeResultBtn?.addEventListener('click', () => {
+    hideResultOverlay();
   });
 
   difficultySelectEl.addEventListener('change', () => {
