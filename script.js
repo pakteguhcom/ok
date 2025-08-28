@@ -170,6 +170,7 @@ function initGame() {
   resultOverlayEl = document.getElementById('result-overlay');
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
+  const resetLbBtn = document.getElementById('reset-lb-btn');
   difficultySelectEl = document.getElementById('difficulty-select');
   timeElapsedEl = document.getElementById('time-elapsed');
   resultDifficultyEl = document.getElementById('result-difficulty');
@@ -512,6 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
     hideResultOverlay();
     initGame();
   });
+  resetLbBtn?.addEventListener('click', () => {
+    clearLeaderboard();
+    renderLeaderboard();
+  });
 
   difficultySelectEl.addEventListener('change', () => {
     const value = difficultySelectEl.value;
@@ -619,6 +624,14 @@ function formatSeconds(totalSec) {
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
   return `${min}:${String(sec).padStart(2, '0')}`;
+}
+
+function clearLeaderboard() {
+  try {
+    localStorage.removeItem(LB_KEY);
+  } catch (e) {
+    // ignore
+  }
 }
 
 
