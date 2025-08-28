@@ -1,10 +1,16 @@
 // Quiz Sweeper - Core Game Logic + Quiz System
 
-// Konstanta permainan
-const BOARD_WIDTH = 10;
-const BOARD_HEIGHT = 10;
-const NUM_MINES = 15;
-const STARTING_LIVES = 3;
+// Konfigurasi kesulitan
+const DIFFICULTIES = {
+  easy: { width: 8, height: 8, mines: 10, lives: 4 },
+  medium: { width: 10, height: 10, mines: 15, lives: 3 },
+  hard: { width: 12, height: 12, mines: 28, lives: 2 },
+};
+
+let BOARD_WIDTH = DIFFICULTIES.medium.width;
+let BOARD_HEIGHT = DIFFICULTIES.medium.height;
+let NUM_MINES = DIFFICULTIES.medium.mines;
+let STARTING_LIVES = DIFFICULTIES.medium.lives;
 
 // State global
 let boardData = [];
@@ -19,7 +25,8 @@ let currentClick = null; // { row, col }
 // DOM elements
 let minesEl, livesEl, boardEl,
   quizModalEl, questionTextEl, answerOptionsEl, submitAnswerBtn,
-  resultOverlayEl, resultMessageEl, restartBtnEl;
+  resultOverlayEl, resultMessageEl, restartBtnEl, difficultySelectEl,
+  timeElapsedEl, resultDifficultyEl, resultTimeEl, scorePointsEl, resultScoreEl, leaderboardListEl;
 
 // Bank pertanyaan (SMP level)
 const QUESTIONS = [
@@ -132,6 +139,9 @@ const QUESTIONS = [
 
 let questionOrder = [];
 let questionIndex = 0;
+let timerInterval = null;
+let startTimeMs = 0;
+let scorePoints = 0;
 
 function shuffleQuestions() {
   questionOrder = [...Array(QUESTIONS.length).keys()]
@@ -160,6 +170,15 @@ function initGame() {
   resultOverlayEl = document.getElementById('result-overlay');
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
+  const resetLbBtn = document.getElementById('reset-lb-btn');
+  const closeResultBtn = document.getElementById('close-result-btn');
+  difficultySelectEl = document.getElementById('difficulty-select');
+  timeElapsedEl = document.getElementById('time-elapsed');
+  resultDifficultyEl = document.getElementById('result-difficulty');
+  resultTimeEl = document.getElementById('result-time');
+  scorePointsEl = document.getElementById('score-points');
+  resultScoreEl = document.getElementById('result-score');
+  leaderboardListEl = document.getElementById('leaderboard-list');
 
   // Reset state
   gameOver = false;
@@ -169,6 +188,7 @@ function initGame() {
   totalSafeTiles = BOARD_WIDTH * BOARD_HEIGHT - NUM_MINES;
   quizOpen = false;
   currentClick = null;
+  scorePoints = 0;
 
   // Siapkan papan
   buildEmptyBoard();
@@ -180,6 +200,10 @@ function initGame() {
   // Grid size variable for CSS
   boardEl.style.setProperty('--board-width', BOARD_WIDTH);
   boardEl.style.setProperty('--board-height', BOARD_HEIGHT);
+
+  // Timer
+  stopTimer();
+  startTimer();
 }
 
 function buildEmptyBoard() {
@@ -263,6 +287,7 @@ function updateUI() {
   const minesRemaining = NUM_MINES - flagsPlaced;
   minesEl.textContent = String(minesRemaining);
   livesEl.textContent = String(lives);
+  if (scorePointsEl) scorePointsEl.textContent = String(scorePoints);
 }
 
 // Event Handlers
@@ -358,9 +383,11 @@ function onSubmitAnswer() {
   currentClick = null;
 
   if (isCorrect) {
+    scorePoints = Math.max(0, scorePoints + 10);
     revealTile(row, col);
     checkWinCondition();
   } else {
+    scorePoints = Math.max(0, scorePoints - 5);
     lives -= 1;
     updateUI();
     if (lives <= 0) {
@@ -430,6 +457,7 @@ function checkWinCondition() {
 
 function endGame(isWin) {
   gameOver = true;
+  stopTimer();
   // Tampilkan semua ranjau jika kalah
   if (!isWin) {
     for (let r = 0; r < BOARD_HEIGHT; r++) {
@@ -445,6 +473,17 @@ function endGame(isWin) {
   }
 
   resultMessageEl.textContent = isWin ? 'Selamat, Anda Menang!' : 'Yah, Anda Kalah!';
+  const diffKey = getCurrentDifficultyKey();
+  resultDifficultyEl.textContent = labelForDifficulty(diffKey);
+  resultTimeEl.textContent = formatElapsed();
+  resultScoreEl.textContent = String(scorePoints);
+  updateLeaderboard({
+    score: scorePoints,
+    timeSec: getElapsedSeconds(),
+    difficulty: diffKey,
+    date: new Date().toISOString(),
+  });
+  renderLeaderboard();
   resultOverlayEl.classList.add('show');
   resultOverlayEl.setAttribute('aria-hidden', 'false');
 }
@@ -467,6 +506,7 @@ document.addEventListener('DOMContentLoaded', () => {
   resultOverlayEl = document.getElementById('result-overlay');
   resultMessageEl = document.getElementById('result-message');
   restartBtnEl = document.getElementById('restart-btn');
+  difficultySelectEl = document.getElementById('difficulty-select');
 
   boardEl.addEventListener('click', onBoardClick);
   boardEl.addEventListener('contextmenu', onBoardContextMenu);
@@ -474,9 +514,128 @@ document.addEventListener('DOMContentLoaded', () => {
     hideResultOverlay();
     initGame();
   });
+  resetLbBtn?.addEventListener('click', () => {
+    clearLeaderboard();
+    renderLeaderboard();
+  });
+  closeResultBtn?.addEventListener('click', () => {
+    hideResultOverlay();
+  });
+
+  difficultySelectEl.addEventListener('change', () => {
+    const value = difficultySelectEl.value;
+    const cfg = DIFFICULTIES[value] || DIFFICULTIES.medium;
+    BOARD_WIDTH = cfg.width;
+    BOARD_HEIGHT = cfg.height;
+    NUM_MINES = cfg.mines;
+    STARTING_LIVES = cfg.lives;
+    hideResultOverlay();
+    initGame();
+  });
 
   shuffleQuestions();
   initGame();
 });
+
+// Timer helpers
+function startTimer() {
+  startTimeMs = Date.now();
+  timeElapsedEl.textContent = '0:00';
+  timerInterval = setInterval(() => {
+    timeElapsedEl.textContent = formatElapsed();
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function formatElapsed() {
+  const ms = Math.max(0, Date.now() - startTimeMs);
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${String(sec).padStart(2, '0')}`;
+}
+
+function getElapsedSeconds() {
+  const ms = Math.max(0, Date.now() - startTimeMs);
+  return Math.floor(ms / 1000);
+}
+
+function getCurrentDifficultyKey() {
+  const v = difficultySelectEl?.value || 'medium';
+  return ['easy','medium','hard'].includes(v) ? v : 'medium';
+}
+
+function labelForDifficulty(key) {
+  switch (key) {
+    case 'easy': return 'Mudah';
+    case 'medium': return 'Sedang';
+    case 'hard': return 'Sulit';
+    default: return '-';
+  }
+}
+
+// Leaderboard (localStorage)
+const LB_KEY = 'quiz-sweeper-leaderboard-v1';
+
+function readLeaderboard() {
+  try {
+    const raw = localStorage.getItem(LB_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch (e) {
+    return [];
+  }
+}
+
+function writeLeaderboard(entries) {
+  try {
+    localStorage.setItem(LB_KEY, JSON.stringify(entries));
+  } catch (e) {
+    // ignore
+  }
+}
+
+function updateLeaderboard(entry) {
+  const entries = readLeaderboard();
+  entries.push(entry);
+  entries.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score; // skor menurun
+    return a.timeSec - b.timeSec; // waktu naik
+  });
+  writeLeaderboard(entries.slice(0, 5));
+}
+
+function renderLeaderboard() {
+  if (!leaderboardListEl) return;
+  const entries = readLeaderboard();
+  leaderboardListEl.innerHTML = '';
+  entries.forEach((e) => {
+    const li = document.createElement('li');
+    li.textContent = `${e.score} poin • ${formatSeconds(e.timeSec)} • ${labelForDifficulty(e.difficulty)}`;
+    leaderboardListEl.appendChild(li);
+  });
+}
+
+function formatSeconds(totalSec) {
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${String(sec).padStart(2, '0')}`;
+}
+
+function clearLeaderboard() {
+  try {
+    localStorage.removeItem(LB_KEY);
+  } catch (e) {
+    // ignore
+  }
+}
 
 
